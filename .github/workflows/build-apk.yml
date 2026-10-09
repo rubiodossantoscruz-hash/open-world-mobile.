@@ -21,24 +21,30 @@ jobs:
           distribution: temurin
           java-version: "17"
 
+      - name: Configurar Gradle correto
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.9"
+
       - name: Instalar ferramentas
         run: |
           sudo apt-get update
-          sudo apt-get install -y unzip gradle
+          sudo apt-get install -y unzip
 
       - name: Preparar projeto
+        shell: bash
         run: |
+          set -euxo pipefail
           mkdir -p projeto
           ZIP_FILE=$(find . -maxdepth 1 -type f -iname '*.zip' -print -quit)
           if [ -z "$ZIP_FILE" ]; then
-            echo "ERRO: nao encontrei o ZIP na raiz do repositorio"
+            echo "ERRO: ZIP nao encontrado"
             exit 1
           fi
           unzip -o "$ZIP_FILE" -d projeto
           BUILD_FILE=$(find projeto -type f \( -name build.gradle -o -name build.gradle.kts \) -print -quit)
           if [ -z "$BUILD_FILE" ]; then
-            echo "ERRO: nao encontrei build.gradle no ZIP"
-            find projeto -maxdepth 5 -type f | head -100
+            echo "ERRO: build.gradle nao encontrado"
             exit 1
           fi
           PROJECT_DIR=$(dirname "$BUILD_FILE")
