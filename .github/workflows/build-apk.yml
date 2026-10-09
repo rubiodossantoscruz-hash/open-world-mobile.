@@ -26,27 +26,44 @@ jobs:
         run: |
           set -euxo pipefail
           sudo apt-get update
-          sudo apt-get install -y unzip
+          sudo apt-get install -y unzip gradle
           mkdir -p projeto
+
           ZIP_FILE=$(find . -maxdepth 1 -type f -iname '*.zip' -print -quit)
           echo "ZIP encontrado: $ZIP_FILE"
           test -n "$ZIP_FILE"
           unzip -o "$ZIP_FILE" -d projeto
+
           GRADLEW=$(find projeto -type f -name gradlew -print -quit)
-          if [ -z "$GRADLEW" ]; then
-            echo "ERRO: o ZIP nao contem o arquivo gradlew."
-            echo "Arquivos encontrados:"
-            find projeto -maxdepth 4 -type f | head -100
-            exit 1
+
+          if [ -n "$GRADLEW" ]; then
+            chmod +x "$GRADLEW"
+            PROJECT_DIR=$(dirname "$GRADLEW")
+            USE_SYSTEM_GRADLE=false
+          else
+            BUILD_FILE=$(find projeto -type f -name build.gradle -print -quit)
+            test -n "$BUILD_FILE"
+            PROJECT_DIR=$(dirname "$BUILD_FILE")
+
+            while [ "$PROJECT_DIR" != "projeto" ] && [ ! -f "$PROJECT_DIR/settings.gradle" ] && [ ! -f "$PROJECT_DIR/settings.gradle.kts" ]; do
+              PROJECT_DIR=$(dirname "$PROJECT_DIR")
+            done
+
+            USE_SYSTEM_GRADLE=true
           fi
-          chmod +x "$GRADLEW"
-          echo "PROJECT_DIR=$(dirname "$GRADLEW")" >> "$GITHUB_ENV"
+
+          echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
+          echo "USE_SYSTEM_GRADLE=$USE_SYSTEM_GRADLE" >> "$GITHUB_ENV"
 
       - name: Compilar APK
         shell: bash
         run: |
           cd "$PROJECT_DIR"
-          ./gradlew assembleDebug --no-daemon
+          if [ "$USE_SYSTEM_GRADLE" = "true" ]; then
+            gradle assembleDebug --no-daemon
+          else
+            ./gradlew assembleDebug --no-daemon
+          fi
 
       - name: Disponibilizar APK
         uses: actions/upload-artifact@v4
