@@ -1,4 +1,3 @@
-
 name: Build Open World APK
 
 on:
@@ -6,13 +5,14 @@ on:
   push:
     paths:
       - ".github/workflows/build-apk.yml"
+      - "*.zip"
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Baixar repositório
+      - name: Baixar repositorio
         uses: actions/checkout@v4
 
       - name: Configurar Java
@@ -24,6 +24,7 @@ jobs:
       - name: Preparar projeto
         shell: bash
         run: |
+          set -euxo pipefail
           sudo apt-get update
           sudo apt-get install -y unzip
           mkdir -p projeto
@@ -32,7 +33,12 @@ jobs:
           test -n "$ZIP_FILE"
           unzip -o "$ZIP_FILE" -d projeto
           GRADLEW=$(find projeto -type f -name gradlew -print -quit)
-          test -n "$GRADLEW"
+          if [ -z "$GRADLEW" ]; then
+            echo "ERRO: o ZIP nao contem o arquivo gradlew."
+            echo "Arquivos encontrados:"
+            find projeto -maxdepth 4 -type f | head -100
+            exit 1
+          fi
           chmod +x "$GRADLEW"
           echo "PROJECT_DIR=$(dirname "$GRADLEW")" >> "$GITHUB_ENV"
 
@@ -48,4 +54,3 @@ jobs:
           name: Open-World-APK
           path: projeto/**/build/outputs/apk/debug/*.apk
           if-no-files-found: error
-
